@@ -1,0 +1,19 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "telegram-local",
+  "version": "0.1.0",
+  "description": "Connect your personal Telegram account to Codex using a local MTProto session.",
+  "license": "MIT",
+  "keywords": ["telegram", "mcp", "codex", "mtproto"],
+  "extensions": {
+    "com.openai": {
+      "requires_local_executor": true,
+      "onboardingSkill": "./skills/telegram-local/SKILL.md",
+      "interface": {
+        "displayName": "Telegram Local",
+        "shortDescription": "Local Telegram personal-account connector",
+        "category": "Productivity"
+      }
+    }
+  }
+}
