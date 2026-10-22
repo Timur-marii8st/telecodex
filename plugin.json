@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "telegram-local",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Connect your personal Telegram account to Codex using a local MTProto session.",
   "license": "MIT",
   "keywords": ["telegram", "mcp", "codex", "mtproto"],

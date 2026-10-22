@@ -5,6 +5,8 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import subprocess
+import sys
 from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -36,6 +38,15 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(settings(self.directory)["mode"], "read-only")
         self.assertEqual(list(self.directory.glob(".tmp-*")), [])
 
+    def test_file_root_symlink_is_rejected(self):
+        files = self.directory / "files"
+        files.rmdir()
+        outside = Path(self.temporary.name) / "outside"
+        outside.mkdir()
+        files.symlink_to(outside, target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, "must not be a symlink"):
+            prepare(self.directory)
+
     def test_invalid_proxy_does_not_replace_working_config(self):
         original = {"proxy": {"type": "socks5", "host": "localhost", "port": 10808}}
         path = self.directory / "settings.json"
@@ -55,6 +66,44 @@ class ConfigurationTests(unittest.TestCase):
             self.assertEqual(os.environ["TELEGRAM_SESSION_NAME"], str(self.directory / "account"))
             self.assertEqual(os.environ["MCP_TRANSPORT"], "stdio")
             self.assertEqual(os.environ["PYTHON_DOTENV_DISABLED"], "1")
+            self.assertEqual(os.environ["TELEGRAM_SERVER_ROOTS_ONLY"], "1")
+
+    def test_client_roots_cannot_expand_read_or_write_access(self):
+        script = '''
+import asyncio, os, tempfile
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+from telegram_local.config import prepare, server_environment
+async def main():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        private = root / "private"
+        prepare(private)
+        outside = root / "outside"
+        outside.mkdir()
+        sample = outside / "sample.txt"
+        sample.write_text("synthetic sample")
+        server_environment(private, {"api_id": 12345, "api_hash": "a" * 32},
+                           {"mode": "messaging", "proxy": None})
+        from telegram_mcp import runtime
+        runtime._configure_allowed_roots_from_cli([])
+        list_roots = AsyncMock(return_value=SimpleNamespace(roots=[SimpleNamespace(uri=outside.as_uri())]))
+        ctx = SimpleNamespace(session=SimpleNamespace(list_roots=list_roots))
+        path, error = await runtime._resolve_readable_file_path(raw_path=str(sample), ctx=ctx, tool_name="send_file")
+        assert path is None and "outside allowed roots" in error.lower()
+        path, error = await runtime._resolve_writable_file_path(raw_path=str(outside / "output.txt"), default_filename="output.txt", ctx=ctx, tool_name="download_media")
+        assert path is None and "outside allowed roots" in error.lower()
+        inside = private / "files" / "sample.txt"
+        inside.write_text("allowed sample")
+        path, error = await runtime._resolve_readable_file_path(raw_path=str(inside), ctx=ctx, tool_name="send_file")
+        assert path == inside and error is None
+        list_roots.assert_not_awaited()
+asyncio.run(main())
+'''
+        result = subprocess.run([sys.executable, "-c", script], cwd=self.directory,
+                                capture_output=True, text=True, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_proxy_route_is_identical_for_login_and_server(self):
         config = {"mode": "messaging", "proxy": {"type": "socks5", "host": "127.0.0.1", "port": 12345}}
@@ -118,6 +167,8 @@ class PublicTreeTests(unittest.TestCase):
         checker = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(checker)
         self.assertTrue(checker.violations("private/account.session", b"anything"))
+        self.assertTrue(checker.violations(".env.production", b"anything"))
+        self.assertEqual(checker.violations(".env.example", b"placeholder"), [])
         self.assertTrue(checker.violations("example.txt", b"example-secret", [b"example-secret"]))
         self.assertEqual(checker.violations("README.md", b"No credentials here"), [])
 

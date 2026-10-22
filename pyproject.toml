@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "telegram-local-codex"
-version = "0.1.0"
+version = "0.1.1"
 description = "Local Telegram personal-account MCP connector and Codex setup CLI"
 readme = "README.md"
 requires-python = ">=3.11"

@@ -6,6 +6,7 @@ PYTHON=${PYTHON:-python3}
 if [ ! -x "$SCRIPT_DIR/.venv/bin/python" ]; then
   "$PYTHON" -m venv "$SCRIPT_DIR/.venv"
 fi
+"$SCRIPT_DIR/.venv/bin/python" -m pip install --upgrade "pip==26.2.2"
 "$SCRIPT_DIR/.venv/bin/python" -m pip install -r "$SCRIPT_DIR/requirements.lock"
 "$SCRIPT_DIR/.venv/bin/python" -m pip install --no-deps -e "$SCRIPT_DIR"
 "$SCRIPT_DIR/.venv/bin/python" -m pip check

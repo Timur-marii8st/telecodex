@@ -26,7 +26,11 @@ def prepare(directory):
     os.umask(0o077)
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     directory.chmod(0o700)
-    (directory / "files").mkdir(mode=0o700, exist_ok=True)
+    files = directory / "files"
+    if files.is_symlink():
+        raise ValueError("The private files directory must not be a symlink.")
+    files.mkdir(mode=0o700, exist_ok=True)
+    files.chmod(0o700)
 
 
 def read_json(path, default=None):
@@ -100,6 +104,9 @@ def server_environment(directory, keys, config):
         "TELEGRAM_TRANSCRIBE": "off",
         "TELEGRAM_EXPOSED_TOOLS": MODES[config["mode"]],
         "TELEGRAM_ALLOWED_ROOTS": str(directory / "files"),
+        # Upstream otherwise prefers roots supplied by the MCP client, which
+        # can include the workspace or home directory and override this boundary.
+        "TELEGRAM_SERVER_ROOTS_ONLY": "1",
         "XDG_STATE_HOME": str(directory / "state"),
         "TELEGRAM_TRANSCRIPT_CACHE_DIR": str(directory / "transcripts"),
         "MCP_TRANSPORT": "stdio",

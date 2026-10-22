@@ -20,7 +20,9 @@ def violations(name, data, secrets=()):
     path = Path(name)
     found = []
     if (set(path.parts) & DENIED_PARTS or path.name in DENIED_NAMES
-            or ".session" in path.name or path.name == ".env" or path.suffix == ".log"):
+            or ".session" in path.name or path.name == ".env"
+            or (path.name.startswith(".env.") and path.name != ".env.example")
+            or path.suffix == ".log"):
         found.append("private/generated artifact")
     if re.search(rb"/(?:home|Users)/[A-Za-z0-9_.-]+/", data):
         found.append("machine-specific home path")
